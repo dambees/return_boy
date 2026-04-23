@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REVERSE CLOCK: TERMINAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@100;300;400;700;900&display=swap');
+
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-red: #ff3131;
+            --bg-black: #050506;
+        }
+
+        body, html {
+            margin: 0; padding: 0; background-color: var(--bg-black);
+            color: #fff; font-family: 'Noto Sans KR', sans-serif;
+            overflow-x: hidden; height: 100%;
+        }
+
+        .sf-font { font-family: 'Orbitron', sans-serif; }
+
+        /* 거친 노이즈 & 강렬한 비네트 */
+        .noise {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+            opacity: 0.15; pointer-events: none; z-index: 100;
+        }
+        .vignette {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 20%, black 150%);
+            pointer-events: none; z-index: 90;
+        }
+
+        .main-bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            overflow: hidden; z-index: -2;
+            background: linear-gradient(rgba(5, 5, 6, 0.84), rgba(5, 5, 6, 0.96));
+        }
+        .main-bg::before {
+            content: '';
+            position: absolute; inset: -24px;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(0, 243, 255, 0.10), transparent 34%),
+                radial-gradient(circle at 80% 30%, rgba(255, 49, 49, 0.08), transparent 30%),
+                linear-gradient(rgba(5, 5, 6, 0.38), rgba(5, 5, 6, 0.68)),
+                url('https://i.imgur.com/M0VYYqk.png');
+            background-size: cover;
+            background-position: center;
+            filter: blur(12px);
+            transform: scale(1.06);
+            opacity: 0.42;
+        }
+
+        /* 페이지 레이아웃 */
+        .page { display: none; width: 100%; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; }
+        .page.active { display: flex; }
+
+        /* 입력창 강렬한 네온 효과 */
+        .neon-input-wrapper {
+            background: transparent;
+            border: none;
+            padding: 18px 0;
+            position: relative;
+        }
+        .neon-input-wrapper::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,243,255,0.5), transparent);
+            opacity: 0.6;
+        }
+        .neon-input-wrapper:focus-within::after {
+            opacity: 1;
+        }
+
+        .label-kor { font-size: 18px; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); margin-bottom: 2px; display: block; }
+        .label-eng { font-size: 10px; color: #666; letter-spacing: 3px; font-family: 'Orbitron'; }
+
+        .cyber-field {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            width: 100%;
+            color: white;
+            padding: 10px 0;
+            font-size: 1.1rem;
+            outline: none;
+            transition: 0.25s;
+        }
+        .cyber-field:focus {
+            border-bottom-color: transparent;
+            box-shadow: 0 6px 10px -6px rgba(0,243,255,0.5);
+        }
+
+        /* 네온 버튼 */
+        .neon-btn {
+            border: 2px solid var(--neon-cyan); color: var(--neon-cyan);
+            padding: 1.5rem 5rem; font-size: 1.4rem; font-weight: 900;
+            background: transparent; cursor: pointer; position: relative;
+            text-shadow: 0 0 10px var(--neon-cyan); box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            transition: 0.3s;
+        }
+        .neon-btn:hover {
+            background: var(--neon-cyan); color: #000;
+            box-shadow: 0 0 50px var(--neon-cyan); text-shadow: none;
+        }
+
+        /* 2P 로딩 글리치 */
+        .glitch-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: none; z-index: 200;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        .glitch-screen.active { display: flex; animation: scanline 0.1s infinite; }
+        @keyframes scanline { 0% { background: #050506; } 50% { background: #0a0a0c; } 100% { background: #050506; } }
+
+        /* 3P 리포트 가독성 보강 */
+        .report-label { color: var(--neon-cyan); font-weight: 900; font-size: 14px; letter-spacing: 1px; margin-bottom: 8px; }
+        .report-value { font-size: 22px; font-weight: 300; color: #fff; line-height: 1.4; }
+        
+        .keyword-hover:hover { color: var(--neon-cyan); text-shadow: 0 0 15px var(--neon-cyan); transition: 0.3s; cursor: default; }
+        .sync-user-name {
+            color: #ff8fe7;
+            text-shadow: 0 0 14px rgba(255, 143, 231, 0.45);
+            font-weight: 900;
+        }
+
+        .keyword-chip-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .keyword-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border: 1px solid rgba(0, 243, 255, 0.32);
+            background: rgba(0, 243, 255, 0.08);
+            color: #b8fbff;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.01em;
+            box-shadow: inset 0 0 12px rgba(0, 243, 255, 0.06), 0 0 14px rgba(0, 243, 255, 0.08);
+        }
+        .neon-quote {
+            color: #ff3131;
+            text-shadow: 0 0 8px rgba(255,49,49,0.8), 0 0 18px rgba(255,49,49,0.6), 0 0 30px rgba(255,49,49,0.4);
+        }
+        .sync-box {
+            box-shadow: 0 0 60px rgba(0,243,255,0.25), inset 0 0 40px rgba(0,243,255,0.08);
+            backdrop-filter: blur(10px);
+            background: linear-gradient(145deg, rgba(0,243,255,0.05), rgba(0,0,0,0.6));
+            position: relative;
+            border: 1px solid rgba(0,243,255,0.4);
+        }
+        .sync-box::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 1px solid rgba(0,243,255,0.25);
+            box-shadow: 0 0 20px rgba(0,243,255,0.2);
+            pointer-events: none;
+        }
+        .sync-box::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0,243,255,0.05),
+                rgba(0,243,255,0.05) 1px,
+                transparent 1px,
+                transparent 4px
+            );
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .glitch-effect {
+            animation: glitchScreen 0.45s linear;
+        }
+        .copy-overlay {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 9999;
+            overflow: hidden;
+        }
+        .copy-overlay.active {
+            animation: overlayFlash 1.4s ease forwards;
+        }
+        .copy-overlay::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(255,255,255,0.00) 0px,
+                    rgba(255,255,255,0.00) 2px,
+                    rgba(255,255,255,0.06) 3px,
+                    rgba(255,255,255,0.00) 4px
+                );
+            mix-blend-mode: screen;
+            opacity: 0;
+        }
+        .copy-overlay.active::before {
+            animation: noiseFlicker 0.9s steps(8) forwards;
+        }
+        .copy-overlay-text {
+            font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
+            font-size: clamp(2.8rem, 8vw, 6.4rem);
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            color: #ffffff;
+            text-shadow:
+                0 0 10px rgba(255,255,255,0.98),
+                0 0 24px rgba(0,243,255,0.72),
+                0 0 42px rgba(255,49,49,0.52);
+            position: relative;
+            z-index: 2;
+            opacity: 0;
+            padding: 0.28em 0.5em;
+            background: rgba(0,0,0,0.28);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(4px);
+        }
+        .copy-overlay.active .copy-overlay-text {
+            opacity: 1;
+            animation: overlayTextGlitch 1.25s ease forwards;
+        }
+        .copy-overlay-text::before,
+        .copy-overlay-text::after {
+            content: attr(data-text);
+            position: absolute;
+            inset: 0;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        .copy-overlay-text::before {
+            color: rgba(0,243,255,0.95);
+            transform: translate(-4px, 0);
+            clip-path: inset(0 0 48% 0);
+        }
+        .copy-overlay-text::after {
+            color: rgba(255,49,49,0.92);
+            transform: translate(4px, 0);
+            clip-path: inset(52% 0 0 0);
+        }
+        @keyframes glitchScreen {
+            0% { transform: none; filter: brightness(1) contrast(1); }
+            10% { transform: skewX(2deg) translateX(-4px); filter: brightness(1.35) contrast(1.25); }
+            20% { transform: skewX(-3deg) translateX(5px); filter: brightness(0.75) contrast(1.45); }
+            30% { transform: translateX(-8px) scaleY(1.01); filter: brightness(1.15) contrast(1.3); }
+            40% { transform: translateX(7px) scaleY(0.99); filter: brightness(0.85) contrast(1.4); }
+            55% { transform: skewX(4deg) translateX(-6px); filter: brightness(1.25); }
+            70% { transform: skewX(-2deg) translateX(4px); filter: brightness(0.9) contrast(1.2); }
+            85% { transform: translateX(-2px); filter: brightness(1.08); }
+            100% { transform: none; filter: brightness(1) contrast(1); }
+        }
+        @keyframes overlayFlash {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes overlayTextGlitch {
+            0% { transform: scale(0.94); opacity: 0; filter: blur(10px); }
+            10% { transform: scale(1.04); opacity: 1; filter: blur(0); }
+            20% { transform: translate(-10px, 2px) skewX(8deg); opacity: 1; }
+            30% { transform: translate(9px, -2px) skewX(-9deg); opacity: 1; }
+            42% { transform: translate(-6px, 1px) scaleX(1.02); opacity: 1; }
+            58% { transform: translate(5px, -1px) scaleX(0.98); opacity: 1; }
+            72% { transform: translate(-2px, 0); opacity: 1; }
+            88% { transform: translate(0, 0); opacity: 1; filter: blur(0); }
+            100% { transform: scale(1); opacity: 0; filter: blur(1px); }
+        }
+        @keyframes noiseFlicker {
+            0% { opacity: 0; transform: translateY(0); }
+            15% { opacity: 0.9; transform: translateY(-2px); }
+            30% { opacity: 0.35; transform: translateY(1px); }
+            45% { opacity: 1; transform: translateY(-1px); }
+            60% { opacity: 0.45; transform: translateY(2px); }
+            75% { opacity: 0.85; transform: translateY(-1px); }
+            100% { opacity: 0; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="noise"></div>
+    <div class="vignette"></div>
+    <div class="main-bg"></div>
+
+    <div id="page1" class="page active px-6">
+        <div class="max-w-5xl w-full bg-black/90 backdrop-blur-3xl p-12 md:p-20 border border-white/10 shadow-[0_0_100px_rgba(0,0,0,1)] relative">
+            <div class="mb-16 border-l-8 border-cyan-500 pl-8">
+                <h1 class="sf-font text-5xl font-black text-white italic tracking-tighter">DATA_SYNC</h1>
+                <p class="text-lg text-cyan-400 font-bold mt-2 uppercase tracking-[0.2em]">가이드 페르소나 등록 시스템</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div class="space-y-10">
+                    <div class="neon-input-wrapper">
+                        <span class="label-kor">이름</span><span class="label-eng">NAME</span>
+                        <input type="text" id="in_name" class="cyber-field" placeholder="데이터를 입력하세요">
+                    </div>
+                    <div class="grid grid-cols-2 gap-8">
+                        <div class="neon-input-wrapper">
+                            <span class="label-kor">성별</span><span class="label-eng">GENDER</span>
+                            <input type="text" id="in_gender" class="cyber-field">
+                        </div>
+                        <div class="neon-input-wrapper">
+                            <span class="label-kor">나이</span><span class="label-eng">AGE</span>
+                            <input type="text" id="in_age" class="cyber-field">
+                        </div>
+                    </div>
+                    <div class="neon-input-wrapper">
+                        <span class="label-kor">성격</span><span class="label-eng">PERSONALITY</span>
+                        <input type="text" id="in_personality" class="cyber-field">
+                    </div>
+                </div>
+                <div class="space-y-10">
+                    <div class="neon-input-wrapper">
+                        <span class="label-kor">외형</span><span class="label-eng">APPEARANCE</span>
+                        <input type="text" id="in_appearance" class="cyber-field" placeholder="체형, 분위기 등">
+                    </div>
+                    <div class="neon-input-wrapper">
+                        <span class="label-kor">기타 이력</span><span class="label-eng">HISTORY</span>
+                        <textarea id="in_etc" class="cyber-field h-[115px] resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-20 flex justify-center">
+                <button onclick="startSync()" class="neon-btn sf-font">SYNCHRONIZE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page2" class="glitch-screen">
+        <div class="text-center">
+            <div class="sf-font text-6xl font-black text-cyan-400 italic animate-pulse mb-4">LOADING...</div>
+            <p class="sf-font text-xs tracking-[1em] text-gray-500 uppercase">Connecting to Future Archive</p>
+        </div>
+    </div>
+
+    <div id="page3" class="page !justify-start overflow-y-auto pt-0">
+        <section class="min-h-screen w-full flex flex-col items-center justify-center text-center p-10 bg-black/20">
+            <p class="text-2xl md:text-3xl font-light italic text-gray-400 mb-8 keyword-hover">"지금보다 더 완벽하게 멸망해가는 미래에서 내가 죽는다고?"</p>
+            <h2 class="text-4xl md:text-7xl font-black leading-tight mb-12 animate__animated animate__fadeInUp">
+                …그렇게 <span class="text-cyan-400">‘권시우’</span>.<br>
+                그는 내 죽음을 막기 위해 시간을 거슬러 나를 찾아왔다.
+            </h2>
+            <div class="sf-font text-2xl text-cyan-500 tracking-[0.8em] border-y border-cyan-500/30 py-8 px-16 backdrop-blur-md">
+                나의 센티넬. 내 미래의 연인.
+            </div>
+        </section>
+
+        <div class="max-w-6xl w-full mx-auto px-6 py-40 space-y-60">
+            <section class="space-y-16">
+                <div class="border-l-8 border-cyan-500 pl-8">
+                    <h3 class="sf-font text-6xl font-black italic">WORLD_VIEW</h3>
+                    <p class="sf-font text-cyan-800 tracking-[0.5em] text-sm mt-2 font-bold uppercase">2140: Humanity's Last Stand</p>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 text-2xl font-light text-gray-300 leading-relaxed">
+                    <div class="space-y-10">
+                        <p>2140년, <span class="keyword-hover text-white font-bold">괴물 바이러스</span>로 인류 붕괴 진행 중. 감염자는 감각 과부하로 괴생명체 변이, 빛·소리·감정에 폭주한다.</p>
+                        <div class="p-10 bg-red-900/10 border-2 border-red-600 text-red-500 font-black text-3xl italic shadow-[0_0_30px_rgba(255,0,0,0.2)]">
+                            “공명 붕괴” : 인류 멸망의 도화선
+                        </div>
+                    </div>
+                    <div class="bg-white/5 p-10 border border-white/10 space-y-8 text-lg">
+                        <p><b class="text-cyan-400 sf-font uppercase tracking-widest block mb-2"># Sentinel & Guide</b> 신체 강화와 다양한 이능력을 지닌 존재. 그리고 그들을 진정시키는 인도자.</p>
+                        <p><b class="text-cyan-400 sf-font uppercase tracking-widest block mb-2"># Imprinting</b> 상호 의지로 성립되는 고유한 연결. 한 명이라도 거부할 시 결코 이루어지지 않는다.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="flex flex-col lg:flex-row items-center gap-24">
+                <div class="lg:w-1/2 relative group">
+                    <div class="absolute -inset-1 bg-red-600 opacity-20 blur group-hover:opacity-50 transition"></div>
+                    <img src="https://i.imgur.com/h5hHPjy.png" class="relative w-full grayscale hover:grayscale-0 transition-all duration-700 border border-white/10 shadow-2xl">
+                </div>
+                <div class="lg:w-1/2 space-y-10">
+                    <h3 class="sf-font text-7xl font-black italic">권시우</h3>
+                    <p class="text-red-500 text-4xl font-light italic"><span class="neon-quote">“다행이다. 아직, 살아 있네….”</span></p>
+                    <div class="space-y-4 text-xl text-gray-300 border-t border-white/10 pt-10">
+                        <p>● 성별/나이: <span class="text-white font-bold">남성 / 29세 (186cm)</span></p>
+                        <p>● 이능력: <span class="text-white font-bold text-2xl underline decoration-red-600 underline-offset-8">근력 강화</span></p>
+                        <p>● 외형: <span class="text-red-400 font-bold">두꺼운 근육질 체형</span></p>
+                        <div class="keyword-chip-wrap">
+                            <span class="keyword-chip">#강한_책임감</span>
+                            <span class="keyword-chip">#쾌활하지만_불안한</span>
+                            <span class="keyword-chip">#진지할_땐_진지하게</span>
+                            <span class="keyword-chip">#배려심</span>
+                        </div>
+                        <p class="text-gray-400 mt-6 leading-relaxed">5년 후 미래에서 온 당신의 각인 상대. <br>원래의 타임라인보다 2년 먼저 당신을 찾아왔습니다.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-cyan-950/20 border-2 border-cyan-500/40 p-16 relative sync-box">
+                <div class="absolute -top-6 left-10 bg-cyan-500 text-black px-6 py-2 sf-font font-black text-xl">SYNC_REPORT</div>
+                
+                <div class="mb-16 bg-white/5 p-10 border border-white/5">
+                    <h4 class="text-3xl font-black text-cyan-400 mb-6">특이 체질 가이드: <span id="sync-user-name" class="sync-user-name">{{user}}</span></h4>
+                    <p class="text-xl text-gray-300 leading-relaxed">
+                        일반 가이드와 달리 <span class="text-white font-bold underline underline-offset-4">감각 과부하를 직접 흡수</span>하는 희귀 케이스. 
+                        폭주하는 감염자조차 일시 억제할 수 있는 잠재력을 지녔으나, 본인은 그 가치를 아직 깨닫지 못했습니다.
+                    </p>
+                </div>
+
+                <div id="result-grid" class="grid grid-cols-1 md:grid-cols-2 gap-y-12 gap-x-20">
+                    </div>
+                
+                <div class="mt-24 flex justify-center gap-10">
+                    <button onclick="location.reload()" class="border-2 border-white/20 px-12 py-5 text-sm sf-font font-black hover:bg-white hover:text-black transition uppercase tracking-widest">Re-Initialize</button>
+                    <button onclick="copyReport()" class="bg-cyan-500 text-black font-black px-12 py-5 text-sm sf-font hover:bg-cyan-400 transition uppercase tracking-widest shadow-[0_0_30px_rgba(0,243,255,0.4)]">Save Record</button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        function copyReport() {
+            const copiedProfile = [
+                `이름: ${document.getElementById('in_name').value.trim()}`,
+                `나이: ${document.getElementById('in_age').value.trim()}`,
+                `외형: ${document.getElementById('in_appearance').value.trim()}`,
+                `성별: ${document.getElementById('in_gender').value.trim()}`,
+                `성격: ${document.getElementById('in_personality').value.trim()}`,
+                `비고: ${document.getElementById('in_etc').value.trim()}`
+            ]
+                .filter(line => !line.endsWith(':'))
+                .join('\n');
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(copiedProfile).catch(() => {});
+            }
+
+            const overlay = document.getElementById('copy-overlay');
+            document.body.classList.remove('glitch-effect');
+            if (overlay) {
+                overlay.classList.remove('active');
+                void overlay.offsetWidth;
+                overlay.classList.add('active');
+            }
+
+            document.body.classList.add('glitch-effect');
+            setTimeout(() => {
+                document.body.classList.remove('glitch-effect');
+            }, 450);
+        }
+
+        function startSync() {
+            const name = document.getElementById('in_name').value;
+            if(!name) { alert("이름(Name)은 필수 입력 사항입니다."); return; }
+
+            const page1 = document.getElementById('page1');
+            const page2 = document.getElementById('page2');
+            const page3 = document.getElementById('page3');
+
+            page1.classList.remove('active');
+            page2.classList.add('active');
+
+            const data = {
+                "이름 (Name)": name,
+                "성별 (Gender)": document.getElementById('in_gender').value,
+                "나이 (Age)": document.getElementById('in_age').value,
+                "성격 (Personality)": document.getElementById('in_personality').value,
+                "외형 (Appearance)": document.getElementById('in_appearance').value,
+                "비고 (History)": document.getElementById('in_etc').value
+            };
+
+            let html = '';
+            for (const [key, val] of Object.entries(data)) {
+                html += `
+                    <div class="border-b border-cyan-500/20 pb-4">
+                        <div class="report-label">${key}</div>
+                        <div class="report-value">${val || 'DATA_PENDING'}</div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('result-grid').innerHTML = html;
+            document.getElementById('sync-user-name').textContent = name || '{{user}}';
+
+            setTimeout(() => {
+                page2.classList.remove('active');
+                page3.classList.add('active');
+                window.scrollTo(0, 0);
+            }, 2000);
+        }
+    </script>
+    <div id="copy-overlay" class="copy-overlay" aria-hidden="true">
+        <div class="copy-overlay-text" data-text="…기다렸어.">…기다렸어.</div>
+    </div>
+</body>
+</html>
